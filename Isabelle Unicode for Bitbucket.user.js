@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2.0
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley
 // @match        https://bitbucket.ts.data61.csiro.au/*
 // @match        http://pubg.buck.ly/test/*
-// @require      https://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.js
+// @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
 
@@ -414,7 +414,7 @@
         return text;
     }
 
-    // "fix" the contents of some code container.
+    // "fix" the contents of some code containers.
     function fix(cont) {
         // find each line, and process it
         cont.find("pre.CodeMirror-line").each(function(i,line){
@@ -432,16 +432,43 @@
         });
     }
 
-    // on load, start doing replaces every two seconds
-    $(window).on('load', function(){
-        var waitForCode = setInterval(function(){
-            //          var codeContainer = $('div[data-qa="bk-file__content"]');
-            var codeContainer = $('div.CodeMirror-lines');
-            if (codeContainer.exists()) {
-                // uncomment the following line if you want it to only happen once
-                //clearInterval(waitForCode);
-                fix(codeContainer);
+    // on load, start doing replaces every 0.5 seconds
+    var refreshSpeed = 500;
+
+    $(window).on('load', function() {
+        // store setting here, so it persists even if buttons go away
+        var enabled = true;
+        // NB: we use class instead of ID, so that we can deal with
+        //     multiple codeWindows in a single page (each will get one
+        //     button, but they will all share the same enabled state).
+        var uiButtons = 'button.isabelleSymbolsToggle';
+
+        var waitForCode = setInterval(function() {
+            // uncomment to stop after one run (for debugging)
+            //clearInterval(waitForCode);
+
+            var codeWindows = $('div.CodeMirror');
+            var buttons = $(uiButtons);
+            function updateLabels() {
+                $(uiButtons).attr('aria-pressed', enabled? 'true' : 'false');
             }
-        }, 500);
+
+            if (codeWindows.exists() && !buttons.exists()) {
+                codeWindows.prepend('<button class="isabelleSymbolsToggle aui-button">Isabelle symbols</button>');
+                updateLabels();
+                $(uiButtons).on('click', function() {
+                    enabled = !enabled;
+                    updateLabels();
+                    return false;
+                });
+            }
+
+            var codeContainers = codeWindows.find('div.CodeMirror-lines');
+            if (codeContainers.exists()) {
+                if (enabled) {
+                    fix(codeContainers);
+                }
+            }
+        }, refreshSpeed);
     });
 })();
