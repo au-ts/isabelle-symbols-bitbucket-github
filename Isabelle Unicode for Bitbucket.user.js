@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.2.1
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley
 // @match        https://bitbucket.ts.data61.csiro.au/*
@@ -402,11 +402,15 @@
         ["\\&lt;^doc&gt;", "&#x01F4D3;"],
         ["\\&lt;^action&gt;", "&#x00261b;"]
     ];
-    //minor jquery helper
 
     var $ = window.jQuery;
+    // Minor jquery helper
+    $.fn.exists = function() {
+        return this.length !== 0;
+    }
 
-    $.fn.exists = function () { return this.length !== 0; }
+    // We create hidden spans to stash the old text
+    var origStashSpan = 'origIsabelleText';
 
     function replaceAll(text, find, repl) {
         while (text.indexOf(find) >= 0){
@@ -414,20 +418,38 @@
         return text;
     }
 
-    // "fix" the contents of some code containers.
+    // update code containers
     function fix(cont) {
         // find each line, and process it
-        cont.find("pre.CodeMirror-line").each(function(i,line){
+        cont.find("pre.CodeMirror-line").each(function(i, line) {
+            if ($(line).find('span.' + origStashSpan).exists()) {
+                // already processed -- skip it
+                return;
+            }
             var span = $(line).find('span[role="presentation"]'); // the lines seem to always have one span child.
-            // get the html, do all replaces. if it has changed, update the DOM with the new html.
+            // get the HTML, do all replacements
             var origHtml = span.html();
-            var newHtml = origHtml.substring(0); // just to make sure its a deep copy, not a reference copy
+            var newHtml = origHtml;
             for (var z=0; z<replaces.length; z++) {
                 newHtml = replaceAll(newHtml, replaces[z][0], replaces[z][1]);
             }
-            if (newHtml !== origHtml) {
-                // change the span's html.
-                span.html(newHtml);
+            // stash the old HTML for unfix()
+            $(line).append('<span class="' + origStashSpan + '" style="display:none"></span>')
+            $(line).find('span.' + origStashSpan).html(origHtml);
+            // now write the new HTML
+            span.html(newHtml);
+        });
+    }
+
+    // revert the update and restore the original text
+    function unfix(cont) {
+        // find each line, and process it
+        cont.find("pre.CodeMirror-line").each(function(i, line) {
+            var orig = $(line).find('span.' + origStashSpan);
+            if (orig.exists()) {
+                var span = $(line).find('span[role="presentation"]');
+                span.html(orig.html());
+                orig.remove();
             }
         });
     }
@@ -467,6 +489,8 @@
             if (codeContainers.exists()) {
                 if (enabled) {
                     fix(codeContainers);
+                } else {
+                    unfix(codeContainers);
                 }
             }
         }, refreshSpeed);
