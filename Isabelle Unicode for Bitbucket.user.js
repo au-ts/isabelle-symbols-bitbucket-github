@@ -454,8 +454,9 @@
         });
     }
 
-    // on load, start doing replaces every 0.5 seconds
-    var refreshSpeed = 500;
+    // On load, start doing replaces every 0.2 seconds.
+    // NB: this traverses the code DOM every time, but text replacement is cached.
+    var refreshSpeed = 200;
 
     $(window).on('load', function() {
         // store setting here, so it persists even if buttons go away
