@@ -6,7 +6,7 @@
 // @author       Scott Buckley and Mitchell Buckley
 // @match        https://bitbucket.ts.data61.csiro.au/*
 // @match        http://pubg.buck.ly/test/*
-// @require      http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.js
+// @require      https://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.js
 // @grant        none
 // ==/UserScript==
 
@@ -433,7 +433,7 @@
     }
 
     // on load, start doing replaces every two seconds
-    $(window).load(function(){
+    $(window).on('load', function(){
         var waitForCode = setInterval(function(){
             //          var codeContainer = $('div[data-qa="bk-file__content"]');
             var codeContainer = $('div.CodeMirror-lines');
