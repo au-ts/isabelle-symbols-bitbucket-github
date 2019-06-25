@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1
+// @version      0.2.2
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley
 // @match        https://bitbucket.ts.data61.csiro.au/*
@@ -470,7 +470,19 @@
             // uncomment to stop after one run (for debugging)
             //clearInterval(waitForCode);
 
-            var codeWindows = $('div.CodeMirror');
+            // Only match file views with .thy filename in top bar. Two cases:
+            var fileWindows
+            var codeWindows
+            if ($('div.file-content:has(.stub)').exists()) {
+                // 1. Diffs, PRs, etc. (filename(s) at top of file-content box(es))
+                fileWindows = $('div.file-content:has(.stub:contains(".thy"))');
+                codeWindows = fileWindows.find('div.CodeMirror');
+            } else {
+                // 2. Source view (filename at top of page content)
+                fileWindows = $('.aui-page-panel-content:has(.stub:contains(".thy"))');
+                codeWindows = fileWindows.find('div.CodeMirror');
+            }
+
             var buttons = $(uiButtons);
             function updateLabels() {
                 $(uiButtons).attr('aria-pressed', enabled? 'true' : 'false');
