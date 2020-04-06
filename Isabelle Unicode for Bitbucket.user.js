@@ -1,11 +1,10 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.3.1
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
-// @author       Scott Buckley and Mitchell Buckley
+// @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://bitbucket.ts.data61.csiro.au/*
-// @match        http://pubg.buck.ly/test/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
@@ -428,14 +427,44 @@
     // `line`: container (i.e. $('.CodeMirror-line'))
     // `span`: span for the code within `line`
     // (These should be elements, not jquery selectors)
-    function doReplace(line, span) {
+    function doReplace(line, codeFormat) {
+        var span;
+        var htmlNodes;
+        var pendingText;
+        var stashHTML;
+
+        if (codeFormat === FORMAT_CODEMIRROR) {
+            span = $(line).find('span[role="presentation"]');
+            if (!span.exists()) return;
+            span = span.get(0);
+            htmlNodes = span.childNodes;
+            pendingText = span.innerText;
+            stashHTML = $(span).html();
+        } else if (codeFormat === FORMAT_DIFFTABLE) {
+            span = line;
+            // htmlNodes are the childNodes excluding the last one (reserved for comments etc)
+            htmlNodes = Array.prototype.slice.call(span.childNodes, 0, -1);
+
+            // we want the text EXCLUDING the comments text
+            var commentsText = span.childNodes[span.childNodes.length-1].innerText;
+            pendingText = span.innerText;
+            if (commentsText.length !== 0)
+                pendingText = pendingText.substr(0, pendingText.length-commentsText.length-1);
+
+            var clone = $(line).clone();
+            clone.find("div.additional-line-content").remove();
+            stashHTML = clone.html();
+        }
+
+        //console.log({span: span, line: line, htmlNodes:htmlNodes, pendingText:pendingText});
+
         // Some parts of the diff may be highlighted with spans.
         // If they cross symbol boundaries, we want to move the new
         // text around to fit the existing spans.
-        var htmlNodes = span.childNodes;
+        // htmlNodes is format-dependent
 
         // Traverse text and HTML in sync.
-        var pendingText = span.innerText;
+        // pendingText is format-dependent
         var pendingNodes = [];
         var pendingIsSpan = [];
         for (var z=0; z<htmlNodes.length; z++) {
@@ -526,8 +555,12 @@
         }
 
         // Stash the old HTML for unfix()
-        $(line).append('<span class="' + origStashSpan + '" style="display:none"></span>')
-        $(line).find('span.' + origStashSpan).html($(span).html());
+        var stash = $('<span class="' + origStashSpan + '" style="display:none"></span>');
+        //stash.html($(span).html());
+        stash.html(stashHTML);
+        //$(line).append('<span class="' + origStashSpan + '" style="display:none"></span>')
+        //$(line).find('span.' + origStashSpan).html($(span).html());
+        $(line).append(stash);
 
         // Now update HTML nodes with our new code
         for (var z=0; z<htmlNodes.length; z++) {
@@ -535,37 +568,61 @@
         }
     }
 
+    function getLineSelector(codeFormat) {
+        if (codeFormat===FORMAT_CODEMIRROR) return "pre.CodeMirror-line";
+        if (codeFormat===FORMAT_DIFFTABLE)  return "td.diff-line";
+    }
+
     // update a code container
-    function fix(cont) {
+    function fix(cont, codeFormat) {
         // find each line, and process it
-        cont.find("pre.CodeMirror-line").each(function(i, line) {
+        cont.find(getLineSelector(codeFormat)).each(function(i, line) {
             if ($(line).find('span.' + origStashSpan).exists()) {
                 // already processed -- skip it
                 return;
             }
-            var span = $(line).find('span[role="presentation"]'); // the lines seem to always have one span child.
-            if (span.exists()) {
-                doReplace(line, span.get(0));
-            }
+            doReplace(line, codeFormat);
+            // deferred to doReplace
+            // var span = $(line).find('span[role="presentation"]'); // the lines seem to always have one span child.
+            // if (span.exists()) {
+            //     doReplace(line, span.get(0), codeFormat);
+            // }
         });
     }
 
+    function restoreText(line, html, codeFormat) {
+        if (codeFormat===FORMAT_CODEMIRROR) {
+            var span = $(line).find('span[role="presentation"]');
+            span.html(html);
+        } else if (codeFormat===FORMAT_DIFFTABLE) {
+            var jline = $(line);
+            // remove all content apart from 'additional line content'
+            jline.contents().filter(function(){return !$(this).hasClass("additional-line-content")}).remove();
+            jline.prepend(html);
+            //jline.html(html);
+        }
+    }
+
     // revert the update and restore the original text
-    function unfix(cont) {
+    function unfix(cont, codeFormat) {
         // find each line, and process it
-        cont.find("pre.CodeMirror-line").each(function(i, line) {
+        cont.find(getLineSelector(codeFormat)).each(function(i, line) {
             var orig = $(line).find('span.' + origStashSpan);
             if (orig.exists()) {
-                var span = $(line).find('span[role="presentation"]');
-                span.html(orig.html());
+                restoreText(line, orig.html(), codeFormat);
                 orig.remove();
             }
+            orig.remove();
         });
     }
 
     // On load, start doing replaces every 0.2 seconds.
     // NB: this traverses the code DOM every time, but text replacement is cached.
     var refreshSpeed = 200;
+
+    // code can exist in CodeMirror or in a diff table
+    const FORMAT_CODEMIRROR = 1;
+    const FORMAT_DIFFTABLE = 2;
 
     $(window).on('load', function() {
         // store setting here, so it persists even if buttons go away
@@ -577,19 +634,28 @@
 
         var waitForCode = setInterval(function() {
             // uncomment to stop after one run (for debugging)
-            //clearInterval(waitForCode);
+            //if (window.stopnow) return;
+            // clearInterval(waitForCode);
+
+            // assume CodeMirror format, by default (might be changed later)
+            var codeFormat = FORMAT_CODEMIRROR;
 
             // Only match file views with .thy filename in top bar. Two cases:
-            var fileWindows
-            var codeWindows
-            if ($('div.file-content:has(.stub)').exists()) {
-                // 1. Diffs, PRs, etc. (filename(s) at top of file-content box(es))
-                fileWindows = $('div.file-content:has(.stub:contains(".thy"))');
-                codeWindows = fileWindows.find('div.CodeMirror');
-            } else {
+            var fileWindows;
+            var codeWindows;
+            // 1. Diffs, PRs, etc. (filename(s) at top of file-content box(es))
+            fileWindows = $('div.file-content:has(.stub:contains(".thy"))');
+            codeWindows = fileWindows.find('div.CodeMirror');
+            if (!fileWindows.exists()) {
                 // 2. Source view (filename at top of page content)
                 fileWindows = $('.aui-page-panel-content:has(.stub:contains(".thy"))');
                 codeWindows = fileWindows.find('div.CodeMirror');
+            }
+            if (!fileWindows.exists()) {
+                // 3. Diff in a table (new bitbucket update?)
+                fileWindows = $('.aui-page-panel-content:has(.breadcrumbs-segment-highlighted:contains(".thy"))');
+                codeWindows = fileWindows.find('div.diff-view');
+                codeFormat = FORMAT_DIFFTABLE;
             }
 
             var buttons = $(uiButtons);
@@ -607,12 +673,16 @@
                 });
             }
 
-            var codeContainers = codeWindows.find('div.CodeMirror-lines');
+            var codeContainers;
+            if (codeFormat === FORMAT_CODEMIRROR) codeContainers = codeWindows.find('div.CodeMirror-lines');
+            if (codeFormat === FORMAT_DIFFTABLE)  codeContainers = codeWindows.find('table.diff-text');
+
             if (codeContainers.exists()) {
                 if (enabled) {
-                    fix(codeContainers);
+                    fix(codeContainers, codeFormat);
                 } else {
-                    unfix(codeContainers);
+                    unfix(codeContainers, codeFormat);
+                    window.stopnow = true;
                 }
             }
         }, refreshSpeed);
