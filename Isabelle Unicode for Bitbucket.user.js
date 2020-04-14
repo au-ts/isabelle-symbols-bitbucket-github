@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.4.0
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://bitbucket.ts.data61.csiro.au/*
+// @match        *github.com/*
+// @match        *bitbucket.org/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
@@ -423,36 +425,129 @@
     // We create hidden spans to stash the old text
     var origStashSpan = 'origIsabelleText';
 
+
+    // 'formats' defines how we identify isabelle files and their code lines.
+    // 'human_desc'     is not used, except for debug outputs
+    // 'last_tested'    should be updated when each format is tested
+    // 'file_window'    is a jQuery selector (or a function) for identifying an element that represents
+    //                  an isabelle file (not just the code)
+    // 'code_window'    (selector) is the part of file_window that contains the code. this is where the button will be added.
+    // 'code_container' (selector) selects elements that contain code lines
+    // 'code_line'      (selector) is an individual line of code (including wrapper stuff)
+    // 'line_textspan'  (selector) is the smallest span that contains all of the code text
+    //
+    // 'text_has_epilogue', if true, treats a line differently for replacement, as there is a non-text epilogie
+    //                      inside the line_textspan. this makes replacement more tricky. the epilogue (must be the
+    //                      last node) is matched with 'epilogue_sel'. This is mostly custom-made for one particular format,
+    //                      but could theoretically be used more generally.
+    var formats = [
+        { human_desc:   'ts internal bitbucket - codemirror (normal source view)',
+          last_tested:  '2020-04-14',
+          file_window:  function(){
+              var fw = $('div.file-content:has(.stub:contains(".thy"))');
+              if (fw.exists()) return fw;
+              return $('.aui-page-panel-content:has(.stub:contains(".thy"))');
+          },
+          code_window:    'div.CodeMirror',
+          code_container: 'div.CodeMirror-lines',
+          code_line:      'pre.CodeMirror-line',
+          line_textspan:  'span[role="presentation"]',
+        },
+        {
+          human_desc:     'ts internal bitbucket - tables (diff/PR view)',
+          last_tested:    '2020-04-14',
+          file_window:    '.aui-page-panel-content:has(.breadcrumbs-segment-highlighted:contains(".thy"))',
+          code_window:    'div.diff-view',
+          code_container: 'table.diff-text',
+          code_line:      'td.diff-line',
+          text_has_epilogue: true,
+          epilogue_sel:   'div.additional-line-content',
+        },
+        {
+          human_desc:     'github source view',
+          last_tested:    '2020-04-14',
+          file_window:    'div.repository-content:has(.breadcrumb:contains(".thy"))',
+          code_window:    'div.type-isabelle',
+          code_container: 'table.js-file-line-container',
+          code_line:      'tr',
+          line_textspan:  'td.js-file-line',
+        },
+        {
+          human_desc:     'github PR view',
+          last_tested:    '2020-04-14',
+          file_window:    'div.js-file:has(div.file-info:has(a:contains(".thy")))',
+          code_window:    'div.js-file-content',
+          code_container: 'table.diff-table',
+          code_line:      'td.blob-code',
+          line_textspan:  'span.blob-code-inner',
+        },
+        { // ugh all the css names seem like generated garbage. maybe they're trying to stop exactly this
+          human_desc:     'bitbucket source view',
+          last_tested:    '2020-04-14',
+          file_window: function() {
+              return $('div[data-qa=bk-file__header]:has(span:contains(".thy"))').parent();
+          },
+          code_window:    'div.monaco-editor',
+          code_container: 'div.lines-content',
+          code_line:      'div.view-line',
+          line_textspan:  'span',
+        },
+        {
+          human_desc:     'bitbucket diff view',
+          last_tested:    '2020-04-14',
+          file_window:    'div.diff-container:has(h1.filename:contains(".thy"))',
+          code_window:    'div.diff-content-container',
+          code_container: 'div.refract-content-container',
+          code_line:      'div.udiff-line',
+          line_textspan:  'pre.source',
+        },
+    ];
+
+    function getCodeFormatIndex() {
+        // return an index from "formats", or -1 if this is not recognised
+        // as an isabelle file anywhere
+        for (var f=0; f<formats.length; f++) {
+            if (getFileWindow(formats[f]).exists()) return f;
+        }
+        return -1;
+    }
+
+    function getFileWindow(format) {
+        if (typeof format.file_window === "function") return format.file_window();
+        return $(format.file_window);
+    }
+
     // The ugly and slow DOM/string wrangling.
     // `line`: container (i.e. $('.CodeMirror-line'))
     // `span`: span for the code within `line`
     // (These should be elements, not jquery selectors)
-    function doReplace(line, codeFormat) {
+    function doReplace(line, format) {
         var span;
         var htmlNodes;
         var pendingText;
         var stashHTML;
 
-        if (codeFormat === FORMAT_CODEMIRROR) {
-            span = $(line).find('span[role="presentation"]');
+        if (format.text_has_epilogue !== true) {
+            // the 'normal' case
+            span = $(line).find(format.line_textspan);
             if (!span.exists()) return;
-            span = span.get(0);
+            span = span.get(0); // this should only be one line, and we want its top-level container
             htmlNodes = span.childNodes;
             pendingText = span.innerText;
             stashHTML = $(span).html();
-        } else if (codeFormat === FORMAT_DIFFTABLE) {
+        } else {
             span = line;
-            // htmlNodes are the childNodes excluding the last one (reserved for comments etc)
+            // htmlNodes are the childNodes excluding the last one (the epilogue)
             htmlNodes = Array.prototype.slice.call(span.childNodes, 0, -1);
 
-            // we want the text EXCLUDING the comments text
+            // we want the text EXCLUDING the epilogue
             var commentsText = span.childNodes[span.childNodes.length-1].innerText;
             pendingText = span.innerText;
             if (commentsText.length !== 0)
                 pendingText = pendingText.substr(0, pendingText.length-commentsText.length-1);
 
             var clone = $(line).clone();
-            clone.find("div.additional-line-content").remove();
+            clone.find(format.epilogue_sel).remove();
             stashHTML = clone.html();
         }
 
@@ -479,6 +574,7 @@
 
         // Start replacing from the beginning of the line.
         var newNodeText = ['']; // This will store new text for each node in htmlNodes
+        var textChanged = false;
         while (pendingText !== '') {
             // if we didn't find anything, drop first char and continue.
             var oldPrefix = pendingText.substr(0, 1);
@@ -495,6 +591,7 @@
                         oldPrefix = find;
                         newPrefix = repl;
                         newSuffix = pendingText.substr(find.length);
+                        textChanged = true;
                         break;
                     }
                 }
@@ -556,10 +653,7 @@
 
         // Stash the old HTML for unfix()
         var stash = $('<span class="' + origStashSpan + '" style="display:none"></span>');
-        //stash.html($(span).html());
         stash.html(stashHTML);
-        //$(line).append('<span class="' + origStashSpan + '" style="display:none"></span>')
-        //$(line).find('span.' + origStashSpan).html($(span).html());
         $(line).append(stash);
 
         // Now update HTML nodes with our new code
@@ -568,61 +662,46 @@
         }
     }
 
-    function getLineSelector(codeFormat) {
-        if (codeFormat===FORMAT_CODEMIRROR) return "pre.CodeMirror-line";
-        if (codeFormat===FORMAT_DIFFTABLE)  return "td.diff-line";
-    }
+
 
     // update a code container
-    function fix(cont, codeFormat) {
+    function fix(cont, format) {
         // find each line, and process it
-        cont.find(getLineSelector(codeFormat)).each(function(i, line) {
+        cont.find(format.code_line).each(function(i, line) {
             if ($(line).find('span.' + origStashSpan).exists()) {
                 // already processed -- skip it
                 return;
             }
-            doReplace(line, codeFormat);
-            // deferred to doReplace
-            // var span = $(line).find('span[role="presentation"]'); // the lines seem to always have one span child.
-            // if (span.exists()) {
-            //     doReplace(line, span.get(0), codeFormat);
-            // }
+            doReplace(line, format);
         });
     }
 
-    function restoreText(line, html, codeFormat) {
-        if (codeFormat===FORMAT_CODEMIRROR) {
-            var span = $(line).find('span[role="presentation"]');
+    function restoreText(line, html, format) {
+        if (format.text_has_epilogue !== true) {
+            var span = $(line).find(format.line_textspan);
             span.html(html);
-        } else if (codeFormat===FORMAT_DIFFTABLE) {
+        } else {
             var jline = $(line);
-            // remove all content apart from 'additional line content'
-            jline.contents().filter(function(){return !$(this).hasClass("additional-line-content")}).remove();
+            jline.contents().filter(function(){return !$(this).is(format.epilogue_sel)}).remove();
             jline.prepend(html);
-            //jline.html(html);
         }
     }
 
     // revert the update and restore the original text
-    function unfix(cont, codeFormat) {
+    function unfix(cont, format) {
         // find each line, and process it
-        cont.find(getLineSelector(codeFormat)).each(function(i, line) {
-            var orig = $(line).find('span.' + origStashSpan);
+        cont.find(format.code_line).filter(':has(span.'+origStashSpan+')').each(function(i, line) {
+            var orig = $(line).find('span.'+origStashSpan);
             if (orig.exists()) {
-                restoreText(line, orig.html(), codeFormat);
+                restoreText(line, orig.html(), format);
                 orig.remove();
             }
-            orig.remove();
         });
     }
 
     // On load, start doing replaces every 0.2 seconds.
     // NB: this traverses the code DOM every time, but text replacement is cached.
     var refreshSpeed = 200;
-
-    // code can exist in CodeMirror or in a diff table
-    const FORMAT_CODEMIRROR = 1;
-    const FORMAT_DIFFTABLE = 2;
 
     $(window).on('load', function() {
         // store setting here, so it persists even if buttons go away
@@ -637,34 +716,27 @@
             //if (window.stopnow) return;
             // clearInterval(waitForCode);
 
-            // assume CodeMirror format, by default (might be changed later)
-            var codeFormat = FORMAT_CODEMIRROR;
+            // figure out which format we are dealing with (if any)
+            var formatInd = getCodeFormatIndex();
+            if (formatInd===-1) return;
+            var format = formats[formatInd]
 
-            // Only match file views with .thy filename in top bar. Two cases:
-            var fileWindows;
-            var codeWindows;
-            // 1. Diffs, PRs, etc. (filename(s) at top of file-content box(es))
-            fileWindows = $('div.file-content:has(.stub:contains(".thy"))');
-            codeWindows = fileWindows.find('div.CodeMirror');
-            if (!fileWindows.exists()) {
-                // 2. Source view (filename at top of page content)
-                fileWindows = $('.aui-page-panel-content:has(.stub:contains(".thy"))');
-                codeWindows = fileWindows.find('div.CodeMirror');
-            }
-            if (!fileWindows.exists()) {
-                // 3. Diff in a table (new bitbucket update?)
-                fileWindows = $('.aui-page-panel-content:has(.breadcrumbs-segment-highlighted:contains(".thy"))');
-                codeWindows = fileWindows.find('div.diff-view');
-                codeFormat = FORMAT_DIFFTABLE;
-            }
+            // grab the elements we will be using
+            var fileWindows = getFileWindow(format);
+            var codeWindows = fileWindows.find(format.code_window);
 
+            //console.log("found. format:" + format.human_desc);
+
+            // set up buttons
             var buttons = $(uiButtons);
             function updateLabels() {
-                $(uiButtons).attr('aria-pressed', enabled? 'true' : 'false');
+                var btn = $(uiButtons);
+                btn.attr('aria-pressed', enabled? 'true' : 'false');
+                btn.attr('aria-selected', enabled? 'true' : 'false');
+                btn.text((enabled?'':'!')+"Isabelle symbols");
             }
-
             if (codeWindows.exists() && !buttons.exists()) {
-                codeWindows.prepend('<button class="isabelleSymbolsToggle aui-button">Isabelle symbols</button>');
+                codeWindows.prepend('<button type="button" class="isabelleSymbolsToggle aui-button btn">Isabelle symbols</button>');
                 updateLabels();
                 $(uiButtons).on('click', function() {
                     enabled = !enabled;
@@ -673,15 +745,13 @@
                 });
             }
 
-            var codeContainers;
-            if (codeFormat === FORMAT_CODEMIRROR) codeContainers = codeWindows.find('div.CodeMirror-lines');
-            if (codeFormat === FORMAT_DIFFTABLE)  codeContainers = codeWindows.find('table.diff-text');
-
+            // fix all the code lines
+            var codeContainers = codeWindows.find(format.code_container);
             if (codeContainers.exists()) {
                 if (enabled) {
-                    fix(codeContainers, codeFormat);
+                    fix(codeContainers, format);
                 } else {
-                    unfix(codeContainers, codeFormat);
+                    unfix(codeContainers, format);
                     window.stopnow = true;
                 }
             }
