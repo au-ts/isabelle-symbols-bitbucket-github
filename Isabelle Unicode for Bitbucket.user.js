@@ -459,8 +459,13 @@
         {
           human_desc:     'ts internal bitbucket - tables (diff/PR view)',
           last_tested:    '2020-04-14',
-          file_window:    '.aui-page-panel-content:has(.breadcrumbs-segment-highlighted:contains(".thy"))',
-          code_window:    'div.diff-view',
+          file_window:    function() {
+              var fw = $('div.file-comment:has(.breadcrumbs-segment-highlighted:contains(".thy"))');
+              if (fw.exists()) return fw;
+              return $('.aui-page-panel-content:has(.breadcrumbs-segment-highlighted:contains(".thy"))');
+          },
+          //code_window:    'div.diff-view',
+          code_window:    'div.file-content, div.diff-view',
           code_container: 'table.diff-text',
           code_line:      'td.diff-line',
           text_has_epilogue: true,
@@ -529,6 +534,7 @@
         var htmlNodes;
         var pendingText;
         var stashHTML;
+        var jline = $(line);
 
         if (format.text_has_epilogue !== true) {
             // the 'normal' case
@@ -540,21 +546,28 @@
             stashHTML = $(span).html();
         } else {
             span = line;
-            // htmlNodes are the childNodes excluding the last one (the epilogue)
-            htmlNodes = Array.prototype.slice.call(span.childNodes, 0, -1);
+            if (jline.find(format.epilogue_sel).exists()) {
+                // htmlNodes are the childNodes excluding the last one (the epilogue)
+                htmlNodes = Array.prototype.slice.call(span.childNodes, 0, -1);
 
-            // we want the text EXCLUDING the epilogue
-            var commentsText = span.childNodes[span.childNodes.length-1].innerText;
-            pendingText = span.innerText;
-            if (commentsText.length !== 0)
-                pendingText = pendingText.substr(0, pendingText.length-commentsText.length-1);
+                // we want the text EXCLUDING the epilogue
+                var commentsText = span.childNodes[span.childNodes.length-1].innerText;
+                pendingText = span.innerText;
+                if (commentsText.length !== 0)
+                    pendingText = pendingText.substr(0, pendingText.length-commentsText.length-1);
 
-            var clone = $(line).clone();
-            clone.find(format.epilogue_sel).remove();
-            stashHTML = clone.html();
+                var clone = jline.clone();
+                clone.find(format.epilogue_sel).remove();
+                stashHTML = clone.html();
+            } else {
+                htmlNodes = span.childNodes;
+                pendingText = span.innerText;
+                stashHTML = $(span).html();
+            }
         }
 
-        //console.log({span: span, line: line, htmlNodes:htmlNodes, pendingText:pendingText});
+
+
 
         // Some parts of the diff may be highlighted with spans.
         // If they cross symbol boundaries, we want to move the new
@@ -654,15 +667,14 @@
             //console.log('  step:', pendingText, pendingNodes, newNodeText);
         }
 
-        // Stash the old HTML for unfix()
-        var stash = $('<span class="' + origStashSpan + '" style="display:none"></span>');
-        stash.html(stashHTML);
-        $(line).append(stash);
-
         // Now update HTML nodes with our new code
         for (var z=0; z<htmlNodes.length; z++) {
             htmlNodes[z].textContent = newNodeText[z];
         }
+
+        // Stash the old HTML for unfix()
+        var stash = $('<span class="' + origStashSpan + '" style="display:none">' + stashHTML + '</span>');
+        jline.append(stash);
     }
 
 
@@ -685,13 +697,18 @@
             span.html(html);
         } else {
             var jline = $(line);
-            jline.contents().filter(function(){return !$(this).is(format.epilogue_sel)}).remove();
-            jline.prepend(html);
+            if (jline.find(format.epilogue_sel).exists()) {
+                jline.contents().filter(function(){return !$(this).is(format.epilogue_sel)}).remove();
+                jline.prepend(html);
+            } else {
+                jline.html(html);
+            }
         }
     }
 
     // revert the update and restore the original text
     function unfix(cont, format) {
+
         // find each line, and process it
         cont.find(format.code_line).filter(':has(span.'+origStashSpan+')').each(function(i, line) {
             var orig = $(line).find('span.'+origStashSpan);
