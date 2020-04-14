@@ -426,17 +426,20 @@
     var origStashSpan = 'origIsabelleText';
 
 
-    // 'formats' defines how we identify isabelle files and their code lines.
-    // 'human_desc'     is not used, except for debug outputs
-    // 'last_tested'    should be updated when each format is tested
-    // 'file_window'    is a jQuery selector (or a function) for identifying an element that represents
-    //                  an isabelle file (not just the code)
+    // isabelle code is shown in a bunch of different ways on different websites in different modes.
+    // this grouping of attributes attempts to generalise the process of identifying an isabelle file
+    // and handling each displayed file and line of code with its replacements.
+    //
+    // 'human_desc'     not used (except for debug outputs)
+    // 'last_tested'    not used. should be updated when each format is tested.
+    // 'file_window'    is a jQuery selector string OR a function (the others are just selectors) for identifying an element
+    //                  that represents an isabelle file on the page.
     // 'code_window'    (selector) is the part of file_window that contains the code. this is where the button will be added.
-    // 'code_container' (selector) selects elements that contain code lines
-    // 'code_line'      (selector) is an individual line of code (including wrapper stuff)
+    // 'code_container' (selector) is the element that contain code lines
+    // 'code_line'      (selector) is each individual line of code (including wrapper stuff)
     // 'line_textspan'  (selector) is the smallest span that contains all of the code text
     //
-    // 'text_has_epilogue', if true, treats a line differently for replacement, as there is a non-text epilogie
+    // 'text_has_epilogue', if true, treats a line differently for replacement, as there is a non-text epilogue
     //                      inside the line_textspan. this makes replacement more tricky. the epilogue (must be the
     //                      last node) is matched with 'epilogue_sel'. This is mostly custom-made for one particular format,
     //                      but could theoretically be used more generally.
@@ -464,7 +467,7 @@
           epilogue_sel:   'div.additional-line-content',
         },
         {
-          human_desc:     'github source view',
+          human_desc:     'public github - source view',
           last_tested:    '2020-04-14',
           file_window:    'div.repository-content:has(.breadcrumb:contains(".thy"))',
           code_window:    'div.type-isabelle',
@@ -473,7 +476,7 @@
           line_textspan:  'td.js-file-line',
         },
         {
-          human_desc:     'github PR view',
+          human_desc:     'public github - diff view',
           last_tested:    '2020-04-14',
           file_window:    'div.js-file:has(div.file-info:has(a:contains(".thy")))',
           code_window:    'div.js-file-content',
@@ -482,7 +485,7 @@
           line_textspan:  'span.blob-code-inner',
         },
         { // ugh all the css names seem like generated garbage. maybe they're trying to stop exactly this
-          human_desc:     'bitbucket source view',
+          human_desc:     'public bitbucket - source view',
           last_tested:    '2020-04-14',
           file_window: function() {
               return $('div[data-qa=bk-file__header]:has(span:contains(".thy"))').parent();
@@ -493,7 +496,7 @@
           line_textspan:  'span',
         },
         {
-          human_desc:     'bitbucket diff view',
+          human_desc:     'public bitbucket - diff view',
           last_tested:    '2020-04-14',
           file_window:    'div.diff-container:has(h1.filename:contains(".thy"))',
           code_window:    'div.diff-content-container',
