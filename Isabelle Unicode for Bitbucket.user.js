@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.2
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://bitbucket.ts.data61.csiro.au/*
@@ -405,12 +405,34 @@
         ["\\<^doc>", String.fromCharCode(0x01F4D3)],
         ["\\<^action>", String.fromCharCode(0x00261b)],
     ];
+
     var fastPrefix = '\\<';
+    var translateKeys = [];
+    var translateMap = [];
+    var regexMatchString = ""
     for (var z=0; z<replaces.length; z++) {
-        if (!replaces[z][0].startsWith(fastPrefix)) {
+        var key = replaces[z][0];
+        translateKeys.push(key);
+        translateMap[key] = replaces[z][1];
+        if (!key.startsWith(fastPrefix)) {
             fastPrefix = '';
         }
     }
+    RegExp.escape= function(s) {
+        return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    };
+
+    var translateRegexp = new RegExp(translateKeys.map(RegExp.escape).join("|"), "g");
+    var translateFunc = function(x) {
+        var out = translateMap[x];
+        if (out) return out;
+        return x;
+    }
+    var translateReplace = function(str) {
+        if (str.indexOf(fastPrefix)===-1) return str;
+        return str.replace(translateRegexp, translateFunc);
+    }
+
     if (!fastPrefix) {
         console.error('Isabelle Unicode for Bitbucket: fastPrefix failed');
         return;
@@ -567,110 +589,22 @@
         }
 
 
-
-
-        // Some parts of the diff may be highlighted with spans.
-        // If they cross symbol boundaries, we want to move the new
-        // text around to fit the existing spans.
-        // htmlNodes is format-dependent
-
-        // Traverse text and HTML in sync.
-        // pendingText is format-dependent
-        var pendingNodes = [];
-        var pendingIsSpan = [];
-        for (var z=0; z<htmlNodes.length; z++) {
-            // There should be only one level of spans, so using
-            // textContent directly is OK.
-            pendingNodes.push(htmlNodes[z].textContent);
-            pendingIsSpan.push(htmlNodes[z].nodeType === Node.ELEMENT_NODE);
-        }
-
-        //uncomment these to flood your console and crash your browser process
-        //console.log(pendingText, pendingNodes);
-
-        // Start replacing from the beginning of the line.
-        var newNodeText = ['']; // This will store new text for each node in htmlNodes
-        var textChanged = false;
-        while (pendingText !== '') {
-            // if we didn't find anything, drop first char and continue.
-            var oldPrefix = pendingText.substr(0, 1);
-            var newPrefix = pendingText.substr(0, 1);
-            var newSuffix = pendingText.substr(1);
-
-            // Optimisation: only consider things that look like Isabelle symbols
-            if (fastPrefix && pendingText.startsWith(fastPrefix)) {
-                // FIXME: do this matching faster
-                for (var z=0; z<replaces.length; z++) {
-                    var find = replaces[z][0];
-                    var repl = replaces[z][1];
-                    if (pendingText.startsWith(find)) {
-                        oldPrefix = find;
-                        newPrefix = repl;
-                        newSuffix = pendingText.substr(find.length);
-                        textChanged = true;
-                        break;
-                    }
-                }
-            }
-            //console.log({old: oldPrefix, newP: newPrefix});
-
-            // If the replacement crosses at least one span, stuff the new text there.
-            // This is a heuristic for the common case, where diffs look like
-            //
-            //   -  foo \\<[and]> bar
-            //   +  foo \\<[or]> bar
-            //
-            // ("[...]" denotes highlight spans). We want to stretch the highlighting
-            // to cover the whole symbol in both diff lines.
-            var chars = oldPrefix.length;
-            while (chars > 0) {
-                if (chars > pendingNodes[0].length) {
-                    if (newPrefix !== '' && !pendingIsSpan[0] && pendingIsSpan[1]) {
-                        // Crosses span at index 1
-
-                        // Drop text node 0
-                        chars -= pendingNodes[0].length;
-                        pendingNodes.shift();
-                        pendingIsSpan.shift();
-
-                        // Update span node 1
-                        newNodeText.push(newPrefix);
-                        newPrefix = '';
-                    } else {
-                        // Crosses span at index 0, update it
-                        newNodeText[newNodeText.length-1] += newPrefix;
-                        newPrefix = '';
-
-                        // Drop span node 0
-                        chars -= pendingNodes[0].length;
-                        pendingNodes.shift();
-                        pendingIsSpan.shift();
-                        newNodeText.push('');
-                    }
+        // the actual text replace process. we recurse through all nodes
+        // (starting with htmlNodes), replacing the text of any text Node,
+        // and recursing into non-text nodes.
+        // the function 'translateReplace' does the direct string replacing work.
+        var recurseReplace = function(nodes) {
+            for (var i=0; i<nodes.length; i++) {
+                var node = nodes[i];
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    recurseReplace(node.childNodes);
                 } else {
-                    // Doesn't cross a node; update current node
-                    newNodeText[newNodeText.length-1] += newPrefix;
-                    newPrefix = '';
-                    pendingNodes[0] = pendingNodes[0].substr(chars);
-                    chars = 0;
-                    if (pendingNodes[0] === '') {
-                        pendingNodes.shift();
-                        pendingIsSpan.shift();
-                        newNodeText.push('');
-                    }
+                    node.textContent = translateReplace(node.textContent);
                 }
-                //console.log('  replacing:', {newPrefix, pendingNodes, newNodeText});
             }
-
-            // Continue replacing
-            pendingText = newSuffix;
-            //console.log('  step:', pendingText, pendingNodes, newNodeText);
         }
+        recurseReplace(htmlNodes);
 
-        // Now update HTML nodes with our new code
-        for (var z=0; z<htmlNodes.length; z++) {
-            htmlNodes[z].textContent = newNodeText[z];
-        }
 
         // Stash the old HTML for unfix()
         var stash = $('<span class="' + origStashSpan + '" style="display:none">' + stashHTML + '</span>');
