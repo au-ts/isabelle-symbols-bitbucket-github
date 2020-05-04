@@ -5,8 +5,8 @@
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://bitbucket.ts.data61.csiro.au/*
-// @match        *github.com/*
-// @match        *bitbucket.org/*
+// @match        https://github.com/*
+// @match        https://bitbucket.org/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
@@ -434,7 +434,7 @@
     }
 
     if (!fastPrefix) {
-        console.error('Isabelle Unicode for Bitbucket: fastPrefix failed');
+        //unsafeWindow.console.error('Isabelle Unicode for Bitbucket: fastPrefix failed');
         return;
     }
 
@@ -679,7 +679,7 @@
             var fileWindows = getFileWindow(format);
             var codeWindows = fileWindows.find(format.code_window);
 
-            //console.log("found. format:" + format.human_desc);
+            // unsafeWindow.console.log("found. format:" + format.human_desc);
 
             // set up buttons
             var buttons = $(uiButtons);
