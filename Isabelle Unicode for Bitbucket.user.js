@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.2
+// @version      0.4.3
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://bitbucket.ts.data61.csiro.au/*
@@ -10,6 +10,17 @@
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
+
+
+
+
+/*
+  CHANGELOG
+  v0.4.3 2020-09-03
+  - added format for public github's pr comment formatting 'public github - comment view'.
+  - added this changelog
+*/
+
 
 (function() {
     'use strict';
@@ -511,6 +522,15 @@
           code_line:      'td.blob-code',
           line_textspan:  'span.blob-code-inner',
         },
+        {
+          human_desc:     'public github - comment view',
+          last_tested:    '2020-09-03',
+          file_window:    'div.js-comment-container:has(div.file-header:has(a:contains(".thy")))',
+          code_window:    'div.blob-wrapper',
+          code_container: 'table.diff-table',
+          code_line:      'td.blob-code',
+          line_textspan:  'span.blob-code-inner',
+        },
         { // ugh all the css names seem like generated garbage. maybe they're trying to stop exactly this
           human_desc:     'public bitbucket - source view',
           last_tested:    '2020-04-14',
@@ -537,7 +557,10 @@
         // return an index from "formats", or -1 if this is not recognised
         // as an isabelle file anywhere
         for (var f=0; f<formats.length; f++) {
-            if (getFileWindow(formats[f]).exists()) return f;
+            if (getFileWindow(formats[f]).exists()) {
+                //console.log(formats[f]);
+                return f;
+            }
         }
         return -1;
     }
