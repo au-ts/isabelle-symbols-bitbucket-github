@@ -1,12 +1,10 @@
 // ==UserScript==
-// @name         Isabelle Unicode for Bitbucket
+// @name         Isabelle Unicode for Bitbucket and Github
 // @namespace    http://tampermonkey.net/
-// @version      0.4.3
-// @description  Replace isabelle symbol representations with unicode versions in bitbucket
+// @version      0.4.4
+// @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
-// @match        https://bitbucket.ts.data61.csiro.au/*
 // @match        https://github.com/*
-// @match        https://bitbucket.org/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
@@ -16,6 +14,9 @@
 
 /*
   CHANGELOG
+  v0.4.4 2023-10-25
+  - remove support for ts internal bitbucket
+  - add lblot and rblot to list of symbols to be replaced
   v0.4.3 2020-09-03
   - added format for public github's pr comment formatting 'public github - comment view'.
   - added this changelog
@@ -447,7 +448,7 @@
     }
 
     if (!fastPrefix) {
-        //unsafeWindow.console.error('Isabelle Unicode for Bitbucket: fastPrefix failed');
+        //unsafeWindow.console.error('Isabelle Unicode for Bitbucket and Github: fastPrefix failed');
         return;
     }
 
@@ -479,33 +480,6 @@
     //                      last node) is matched with 'epilogue_sel'. This is mostly custom-made for one particular format,
     //                      but could theoretically be used more generally.
     var formats = [
-        { human_desc:   'ts internal bitbucket - codemirror (normal source view)',
-          last_tested:  '2020-04-14',
-          file_window:  function(){
-              var fw = $('div.file-content:has(.stub:contains(".thy"))');
-              if (fw.exists()) return fw;
-              return $('.aui-page-panel-content:has(.stub:contains(".thy"))');
-          },
-          code_window:    'div.CodeMirror',
-          code_container: 'div.CodeMirror-lines',
-          code_line:      'pre.CodeMirror-line',
-          line_textspan:  'span[role="presentation"]',
-        },
-        {
-          human_desc:     'ts internal bitbucket - tables (diff/PR view)',
-          last_tested:    '2020-04-14',
-          file_window:    function() {
-              var fw = $('div.file-comment:has(.breadcrumbs-segment-highlighted:contains(".thy"))');
-              if (fw.exists()) return fw;
-              return $('.aui-page-panel-content:has(.breadcrumbs-segment-highlighted:contains(".thy"))');
-          },
-          //code_window:    'div.diff-view',
-          code_window:    'div.file-content, div.diff-view',
-          code_container: 'table.diff-text',
-          code_line:      'td.diff-line',
-          text_has_epilogue: true,
-          epilogue_sel:   'div.additional-line-content',
-        },
         {
           human_desc:     'public github - source view',
           last_tested:    '2020-04-14',
@@ -517,7 +491,7 @@
         },
         {
           human_desc:     'public github - diff view',
-          last_tested:    '2020-04-14',
+          last_tested:    '2023-10-25',
           file_window:    'div.js-file:has(div.file-info:has(a:contains(".thy")))',
           code_window:    'div.js-file-content',
           code_container: 'table.diff-table',
