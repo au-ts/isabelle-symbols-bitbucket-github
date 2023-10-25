@@ -501,8 +501,8 @@
         },
         {
           human_desc:     'public github - comment view',
-          last_tested:    '2020-09-03',
-          file_window:    'div.js-comment-container:has(div.file-header:has(a:contains(".thy")))',
+          last_tested:    '2023-10-25',
+          file_window:    'details.js-comment-container:has(a:contains(".thy"))',
           code_window:    'div.blob-wrapper',
           code_container: 'table.diff-table',
           code_line:      'td.blob-code',
