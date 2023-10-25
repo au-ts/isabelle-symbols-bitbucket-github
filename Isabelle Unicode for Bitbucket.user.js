@@ -236,6 +236,8 @@
         ["\\<rbrakk>", String.fromCharCode(0x0027e7)],
         ["\\<lbrace>", String.fromCharCode(0x002983)],
         ["\\<rbrace>", String.fromCharCode(0x002984)],
+        ["\\<lblot>", String.fromCharCode(0x002989)],
+        ["\\<rblot>", String.fromCharCode(0x00298a)],
         ["\\<guillemotleft>", String.fromCharCode(0x0000ab)],
         ["\\<guillemotright>", String.fromCharCode(0x0000bb)],
         ["\\<bottom>", String.fromCharCode(0x0022a5)],
