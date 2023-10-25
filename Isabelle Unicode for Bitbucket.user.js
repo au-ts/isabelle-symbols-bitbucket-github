@@ -1,10 +1,11 @@
 // ==UserScript==
-// @name         Isabelle Unicode for Bitbucket and Github
+// @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
 // @version      0.4.4
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://github.com/*
+// @match        https://bitbucket.org/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // @grant        none
 // ==/UserScript==
@@ -448,7 +449,7 @@
     }
 
     if (!fastPrefix) {
-        //unsafeWindow.console.error('Isabelle Unicode for Bitbucket and Github: fastPrefix failed');
+        //unsafeWindow.console.error('Isabelle Unicode for Bitbucket: fastPrefix failed');
         return;
     }
 
