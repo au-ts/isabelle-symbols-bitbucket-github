@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.4
+// @version      0.4.5
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim
 // @match        https://github.com/*
@@ -15,6 +15,9 @@
 
 /*
   CHANGELOG
+  v0.4.5 2023-10-26
+  - fix format for github comment view
+  - add support for github suggested changes
   v0.4.4 2023-10-25
   - remove support for ts internal bitbucket
   - add lblot and rblot to list of symbols to be replaced
@@ -494,19 +497,19 @@
           human_desc:     'public github - diff view',
           last_tested:    '2023-10-25',
           file_window:    'div.js-file:has(div.file-info:has(a:contains(".thy")))',
-          code_window:    'div.js-file-content',
-          code_container: 'table.diff-table',
-          code_line:      'td.blob-code',
-          line_textspan:  'span.blob-code-inner',
+          code_window:    'div.js-file-content, div.js-suggested-changes-blob > div.blob-wrapper',
+          code_container: 'table.diff-table, table.d-table',
+          code_line:      'td.blob-code, td.blob-code-inner',
+          line_textspan:  'span.blob-code-inner, td.blob-code-inner',
         },
         {
           human_desc:     'public github - comment view',
           last_tested:    '2023-10-25',
           file_window:    'details.js-comment-container:has(a:contains(".thy"))',
-          code_window:    'div.blob-wrapper',
-          code_container: 'table.diff-table',
-          code_line:      'td.blob-code',
-          line_textspan:  'span.blob-code-inner',
+          code_window:    'div.blob-wrapper, div.js-suggested-changes-blob > div.blob-wrapper',
+          code_container: 'table.diff-table, table.d-table',
+          code_line:      'td.blob-code, td.blob-code-inner',
+          line_textspan:  'span.blob-code-inner, td.blob-code-inner',
         },
         { // ugh all the css names seem like generated garbage. maybe they're trying to stop exactly this
           human_desc:     'public bitbucket - source view',
