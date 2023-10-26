@@ -560,7 +560,7 @@
 
         if (format.text_has_epilogue !== true) {
             // the 'normal' case
-            span = $(line).find(format.line_textspan);
+            span = $(line).find(format.line_textspan).addBack(format.line_textspan);
             if (!span.exists()) return;
             span = span.get(0); // this should only be one line, and we want its top-level container
             htmlNodes = span.childNodes;
@@ -627,7 +627,7 @@
 
     function restoreText(line, html, format) {
         if (format.text_has_epilogue !== true) {
-            var span = $(line).find(format.line_textspan);
+            var span = $(line).find(format.line_textspan).addBack(format.line_textspan);
             span.html(html);
         } else {
             var jline = $(line);
