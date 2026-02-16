@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.5
+// @version      0.4.6
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
-// @author       Scott Buckley and Mitchell Buckley and Japheth Lim
+// @author       Scott Buckley and Mitchell Buckley and Japheth Lim and Rafal Kolanski
 // @match        https://github.com/*
 // @match        https://bitbucket.org/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
@@ -15,6 +15,10 @@
 
 /*
   CHANGELOG
+  v0.4.6 2026-02-17
+  - support github diff view "new enhanced experience" including single-file view
+  - dynamically check code_window elements for missing buttons instead of relying
+    on presence of a button anywhere
   v0.4.5 2023-10-26
   - fix format for github comment view
   - add support for github suggested changes
@@ -494,13 +498,26 @@
           line_textspan:  'td.js-file-line',
         },
         {
-          human_desc:     'public github - diff view',
+          human_desc:     'public github - diff view (classic 2025)',
           last_tested:    '2023-10-25',
           file_window:    'div.js-file:has(div.file-info:has(a:contains(".thy")))',
           code_window:    'div.js-file-content, div.js-suggested-changes-blob > div.blob-wrapper',
           code_container: 'table.diff-table, table.d-table',
           code_line:      'td.blob-code, td.blob-code-inner',
           line_textspan:  'span.blob-code-inner, td.blob-code-inner',
+        },
+        {
+          human_desc:     'public github - diff view (2026 update)',
+          last_tested:    '2026-02-16',
+          file_window: function() {
+              return $('div[data-testid="progressive-diffs-list"] > div, ' + // normal diff view
+                       'div[class*="DiffComparisonViewer"] > div > div') // single-file diff view ("Due to the size of this pull request...")
+                     .filter('div:has(h3[class^="DiffFileHeader"] > a:contains(".thy"))')
+          },
+          code_window:    'div:has(> table[class*="DiffLines"])',
+          code_container: 'table[class*="DiffLines"]',
+          code_line:      'td.diff-text-cell',
+          line_textspan:  'div.diff-text-inner',
         },
         {
           human_desc:     'public github - comment view',
@@ -692,8 +709,12 @@
                 btn.attr('aria-selected', enabled? 'true' : 'false');
                 btn.text((enabled?'':'!')+"Isabelle symbols");
             }
-            if (codeWindows.exists() && !buttons.exists()) {
-                codeWindows.prepend('<button type="button" class="isabelleSymbolsToggle aui-button btn">Isabelle symbols</button>');
+
+            // add buttons to code windows that don't have them (since they load incrementally, need to check each time)
+            var withoutButtons = codeWindows.filter(`:not(:has(> ${uiButtons}))`);
+            // but avoid updating existing buttons if we don't need to add any
+            if (withoutButtons.exists()) {
+                withoutButtons.prepend('<button type="button" class="isabelleSymbolsToggle aui-button btn">Isabelle symbols</button>');
                 updateLabels();
                 $(uiButtons).on('click', function() {
                     enabled = !enabled;
