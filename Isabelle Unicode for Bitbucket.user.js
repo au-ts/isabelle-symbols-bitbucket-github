@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.6
+// @version      0.4.7
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim and Rafal Kolanski
 // @match        https://github.com/*
@@ -15,6 +15,8 @@
 
 /*
   CHANGELOG
+  v0.4.7 2026-05-20
+  - fix format for github comment view
   v0.4.6 2026-02-17
   - support github diff view "new enhanced experience" including single-file view
   - dynamically check code_window elements for missing buttons instead of relying
@@ -521,8 +523,8 @@
         },
         {
           human_desc:     'public github - comment view',
-          last_tested:    '2023-10-25',
-          file_window:    'details.js-comment-container:has(a:contains(".thy"))',
+          last_tested:    '2026-05-20',
+          file_window:    'review-thread-collapsible.js-comment-container:has(a:contains(".thy"))',
           code_window:    'div.blob-wrapper, div.js-suggested-changes-blob > div.blob-wrapper',
           code_container: 'table.diff-table, table.d-table',
           code_line:      'td.blob-code, td.blob-code-inner',
