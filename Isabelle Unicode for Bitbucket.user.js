@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.7
+// @version      0.4.8
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
-// @author       Scott Buckley and Mitchell Buckley and Japheth Lim and Rafal Kolanski
+// @author       Scott Buckley and Mitchell Buckley and Japheth Lim and Rafal Kolanski and Corey Lewis
 // @match        https://github.com/*
 // @match        https://bitbucket.org/*
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
@@ -15,6 +15,8 @@
 
 /*
   CHANGELOG
+  v0.4.8 2026-10-19
+  - fix format for github diff view
   v0.4.7 2026-05-20
   - fix format for github comment view
   v0.4.6 2026-02-17
@@ -501,7 +503,7 @@
         },
         {
           human_desc:     'public github - diff view (classic 2025)',
-          last_tested:    '2023-10-25',
+          last_tested:    '2026-10-19',
           file_window:    'div.js-file:has(div.file-info:has(a:contains(".thy")))',
           code_window:    'div.js-file-content, div.js-suggested-changes-blob > div.blob-wrapper',
           code_container: 'table.diff-table, table.d-table',
@@ -510,20 +512,19 @@
         },
         {
           human_desc:     'public github - diff view (2026 update)',
-          last_tested:    '2026-02-16',
+          last_tested:    '2026-10-19',
           file_window: function() {
-              return $('div[data-testid="progressive-diffs-list"] > div, ' + // normal diff view
-                       'div[class*="DiffComparisonViewer"] > div > div') // single-file diff view ("Due to the size of this pull request...")
-                     .filter('div:has(h3[class^="DiffFileHeader"] > a:contains(".thy"))')
+              return $('div[class^="diffTargetable"]')
+                     .filter('div:has(h3[class^="file-name"] > a:contains(".thy"))')
           },
-          code_window:    'div:has(> table[class*="DiffLines"])',
-          code_container: 'table[class*="DiffLines"]',
+          code_window:    'div:has(> table[class*="tableLayoutFixed"])',
+          code_container: 'table[class*="tableLayoutFixed"]',
           code_line:      'td.diff-text-cell',
           line_textspan:  'div.diff-text-inner',
         },
         {
           human_desc:     'public github - comment view',
-          last_tested:    '2026-05-20',
+          last_tested:    '2026-10-19',
           file_window:    'review-thread-collapsible.js-comment-container:has(a:contains(".thy"))',
           code_window:    'div.blob-wrapper, div.js-suggested-changes-blob > div.blob-wrapper',
           code_container: 'table.diff-table, table.d-table',
@@ -557,10 +558,11 @@
         // as an isabelle file anywhere
         for (var f=0; f<formats.length; f++) {
             if (getFileWindow(formats[f]).exists()) {
-                //console.log(formats[f]);
+                //console.log("Found format: " + formats[f].human_desc);
                 return f;
             }
         }
+        //console.log("No format found")
         return -1;
     }
 
