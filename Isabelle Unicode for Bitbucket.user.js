@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.8
+// @version      0.4.9
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim and Rafal Kolanski and Corey Lewis
 // @match        https://github.com/*
@@ -15,6 +15,8 @@
 
 /*
   CHANGELOG
+  v0.4.9 2026-11-20
+  - fix format for github diff view
   v0.4.8 2026-10-19
   - fix format for github diff view
   v0.4.7 2026-05-20
@@ -512,19 +514,19 @@
         },
         {
           human_desc:     'public github - diff view (2026 update)',
-          last_tested:    '2026-10-19',
+          last_tested:    '2026-11-20',
           file_window: function() {
               return $('div[class^="diffTargetable"]')
                      .filter('div:has(h3[class^="file-name"] > a:contains(".thy"))')
           },
           code_window:    'div:has(> table[class*="tableLayoutFixed"])',
           code_container: 'table[class*="tableLayoutFixed"]',
-          code_line:      'td.diff-text-cell',
-          line_textspan:  'div.diff-text-inner',
+          code_line:      'td[class^=diffTextCell]',
+          line_textspan:  'div[class^=diffTextInner]',
         },
         {
           human_desc:     'public github - comment view',
-          last_tested:    '2026-10-19',
+          last_tested:    '2026-11-20',
           file_window:    'review-thread-collapsible.js-comment-container:has(a:contains(".thy"))',
           code_window:    'div.blob-wrapper, div.js-suggested-changes-blob > div.blob-wrapper',
           code_container: 'table.diff-table, table.d-table',
