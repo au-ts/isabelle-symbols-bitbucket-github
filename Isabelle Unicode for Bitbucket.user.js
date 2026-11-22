@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Isabelle Unicode for Bitbucket
 // @namespace    http://tampermonkey.net/
-// @version      0.4.9
+// @version      0.4.10
 // @description  Replace isabelle symbol representations with unicode versions in bitbucket and github
 // @author       Scott Buckley and Mitchell Buckley and Japheth Lim and Rafal Kolanski and Corey Lewis
 // @match        https://github.com/*
@@ -15,6 +15,9 @@
 
 /*
   CHANGELOG
+  v0.4.10 2026-11-22
+  - support github source view (react code view), including the
+    attribute-based text rendering it uses in Safari
   v0.4.9 2026-11-20
   - fix format for github diff view
   v0.4.8 2026-10-19
@@ -474,6 +477,8 @@
 
     // We create hidden spans to stash the old text
     var origStashSpan = 'origIsabelleText';
+    // Attribute that holds the code text when it is not in text nodes (github source view in Safari)
+    var codeTextAttr = 'data-code-text';
 
 
     // isabelle code is shown in a bunch of different ways on different websites in different modes.
@@ -495,13 +500,16 @@
     //                      but could theoretically be used more generally.
     var formats = [
         {
-          human_desc:     'public github - source view',
-          last_tested:    '2020-04-14',
-          file_window:    'div.repository-content:has(.breadcrumb:contains(".thy"))',
-          code_window:    'div.type-isabelle',
-          code_container: 'table.js-file-line-container',
-          code_line:      'tr',
-          line_textspan:  'td.js-file-line',
+          human_desc:     'public github - source view (react)',
+          last_tested:    '2026-11-22',
+          file_window:    function() {
+              if (!$('[data-testid="breadcrumbs-filename"]:contains(".thy")').exists()) return $();
+              return $('section[aria-labelledby^="file-name-id"]');
+          },
+          code_window:    'div[class^="codeBlobWrapper"]',
+          code_container: 'div.react-code-file-contents',
+          code_line:      'div.react-file-line',
+          line_textspan:  'div.react-file-line',
         },
         {
           human_desc:     'public github - diff view (classic 2025)',
@@ -623,6 +631,12 @@
             for (var i=0; i<nodes.length; i++) {
                 var node = nodes[i];
                 if (node.nodeType === Node.ELEMENT_NODE) {
+                    // github source view in Safari has no text nodes. The text is in
+                    // an attribute and rendered via CSS ::before
+                    var attrText = node.getAttribute(codeTextAttr);
+                    if (attrText !== null) {
+                        node.setAttribute(codeTextAttr, translateReplace(attrText));
+                    }
                     recurseReplace(node.childNodes);
                 } else {
                     node.textContent = translateReplace(node.textContent);
